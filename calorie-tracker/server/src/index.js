@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { identifyFoodItems } from "./anthropic.js";
+import { identifyFoodItems } from "./gemini.js";
 import { lookupCaloriesPer100g } from "./usda.js";
 
 const app = express();

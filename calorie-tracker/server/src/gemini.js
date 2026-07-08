@@ -1,12 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI, FunctionCallingConfigMode } from "@google/genai";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const IDENTIFY_FOOD_TOOL = {
+const LOG_FOOD_ITEMS_DECLARATION = {
   name: "log_food_items",
   description:
     "Record the distinct food items visible in the photo, each with an estimated portion size in grams.",
-  input_schema: {
+  parametersJsonSchema: {
     type: "object",
     properties: {
       items: {
@@ -37,37 +37,31 @@ const IDENTIFY_FOOD_TOOL = {
 };
 
 export async function identifyFoodItems({ base64Image, mediaType }) {
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 1024,
-    tools: [IDENTIFY_FOOD_TOOL],
-    tool_choice: { type: "tool", name: "log_food_items" },
-    messages: [
+  const response = await client.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      { inlineData: { mimeType: mediaType, data: base64Image } },
       {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: base64Image,
-            },
-          },
-          {
-            type: "text",
-            text:
-              "Identify each distinct food item in this photo and estimate its portion size in grams. " +
-              "Use plain, generic food names that would match entries in a nutrition database.",
-          },
-        ],
+        text:
+          "Identify each distinct food item in this photo and estimate its portion size in grams. " +
+          "Use plain, generic food names that would match entries in a nutrition database. " +
+          "Call log_food_items with the result.",
       },
     ],
+    config: {
+      tools: [{ functionDeclarations: [LOG_FOOD_ITEMS_DECLARATION] }],
+      toolConfig: {
+        functionCallingConfig: {
+          mode: FunctionCallingConfigMode.ANY,
+          allowedFunctionNames: ["log_food_items"],
+        },
+      },
+    },
   });
 
-  const toolUse = message.content.find((block) => block.type === "tool_use");
-  if (!toolUse) {
-    throw new Error("Claude did not return structured food items");
+  const call = response.functionCalls?.[0];
+  if (!call) {
+    throw new Error("Gemini did not return structured food items");
   }
-  return toolUse.input.items ?? [];
+  return call.args?.items ?? [];
 }
