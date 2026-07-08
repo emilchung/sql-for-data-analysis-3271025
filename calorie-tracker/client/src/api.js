@@ -1,5 +1,7 @@
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
 export async function analyzePhoto({ base64, mediaType }) {
-  const response = await fetch('/api/analyze', {
+  const response = await fetch(`${API_BASE}/api/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64, mediaType }),
